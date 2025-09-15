@@ -1,0 +1,16 @@
+#
+# Edit Lock-Stake file. CAUTION: Please do not change.
+#
+# Information about current Edit Lock Owner.
+#
+LockStakeVersion               1.1
+LoginName                      ql21
+HostName                       fastx3-15.ews.illinois.edu
+ProcessIdentifier              2546966
+ProcessCreationTime_UTC        1700407921
+ProcessCreationTime_Readable   Sun Nov 19 09:32:01 2023 CST
+AppIdentifier                  OA File System Design Manager
+OSType                         unix
+ReasonForPlacingEditLock       OpenAccess edit lock
+FilePathUsedToEditLock         /home/ql21/ece482.work/gpdk045/482final/ser/avnew1_extracted/layout.oa.cdslck
+TimeEditLocked                 Sun Nov 19 11:52:27 2023 CST

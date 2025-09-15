@@ -1,0 +1,16 @@
+#
+# Edit Lock-Stake file. CAUTION: Please do not change.
+#
+# Information about current Edit Lock Owner.
+#
+LockStakeVersion               1.1
+LoginName                      ql21
+HostName                       eceb-2022-17.ews.illinois.edu
+ProcessIdentifier              105389
+ProcessCreationTime_UTC        1701215874
+ProcessCreationTime_Readable   Tue Nov 28 17:57:54 2023 CST
+AppIdentifier                  OA File System Design Manager
+OSType                         unix
+ReasonForPlacingEditLock       OpenAccess edit lock
+FilePathUsedToEditLock         /home/ql21/ece482.work/gpdk045/482final/CLKPRBSMUX/schematic/sch.oa.cdslck
+TimeEditLocked                 Tue Nov 28 17:58:24 2023 CST

@@ -1,0 +1,36 @@
+#
+# OPTION COMMAND FILE created by Cadence Quantus Extraction Version 21.1.0-p101 from CCL
+#
+capacitance \
+	 -decoupling_factor 1.0 \
+	 -ground_net "VSS"
+extract \
+	 -selection "all" \
+	 -type "c_only_decoupled"
+extraction_setup \
+	 -macro_cells_type "default" \
+	 -net_name_space "LAYOUT"
+input_db -type assura \
+	 -design_cell_name "PRBS_EN layout 482final" \
+	 -directory_name "/home/ql21/ece482.work/gpdk045" \
+	 -format "DFII" \
+	 -run_name "PRBS_EN"
+log_file \
+	 -file_name "/home/ql21/ece482.work/gpdk045/qrc.PRBS_EN.log"
+output_db -type extracted_view \
+	 -cap_component "pcapacitor" \
+	 -cap_property_name "c" \
+	 -enable_cellview_check false \
+	 -include_cap_model "false" \
+	 -include_parasitic_cap_model "false" \
+	 -include_parasitic_res_model "false" \
+	 -include_res_model "false" \
+	 -view_name "avnew1_extracted"
+output_setup \
+	 -directory_name "/home/ql21/ece482.work/gpdk045" \
+	 -temporary_directory_name "PRBS_EN"
+process_technology \
+	 -technology_directory \
+		"/class/ece482/gpdk045_v_5_0/assura/../qrc/typical"
+
+

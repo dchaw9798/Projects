@@ -30,7 +30,7 @@ The final design includes:
 - Out-of-order load handling
 
 
-<p align="center"> <img src="docs/images/REadme_images/block_diagram.png"/> <p
+<p align="center"> <img src="docs/images/Readme_images/block_diagram.png"/> <p
   align="center">Processor Architecture</p> </p>
 
 

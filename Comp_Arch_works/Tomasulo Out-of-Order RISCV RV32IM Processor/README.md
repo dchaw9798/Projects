@@ -1,370 +1,277 @@
-# ECE 411: mp_ooo
-
-This document, README.md, forms the specification for the machine problem. For
-more details and documentation, visit the `docs` folder. Inside, you will find:
+# Out-of-Order RISC-V Processor (RV32IM)
 
-- [GUIDE.md](./docs/GUIDE.md): Some tips and resources for this MP.
-- [ADVANCED_FEATURES.md](./docs/ADVANCED_FEATURES.md): List of advanced features
-  and their associated point values.
-- [WHAT_IS_AN_OOO.md](./docs/WHAT_IS_AN_OOO.md): Basic overview of an OoO
-  processor.
-- [TEST_CASES.md](./docs/TEST_CASES.md): Basic overview of the test cases.
-- [COMPETITION.md](./docs/COMPETITION.md): Basic overview of the competition.
+A Tomasulo-style out-of-order RISC-V processor implemented in SystemVerilog. This project supports the **RV32IM** instruction set, executes instructions **out-of-order**, and commits them **in-order** through a reorder buffer (ROB). The design integrates branch prediction, load/store dependency handling, and sequential multiply/divide IP blocks.
 
-# Introduction
+## Highlights
 
-This machine problem involves the design of an out-of-order microprocessor. You
-are required to implement the RV32IM instruction set (with the exception of
-FENCE*, ECALL, EBREAK, and CSRR instructions). This handout is an incomplete
-specification to get you started with your design, as a large portion of this
-machine problem is left open ended for you to explore design options that
-interest you.
+- Implemented a **Tomasulo-based out-of-order processor** in SystemVerilog
+- Supports the **RV32IM** instruction set
+- Designed and integrated:
+  - Instruction Queue (IQ)
+  - Reservation Stations (RS)
+  - Reorder Buffer (ROB)
+  - Load/Store Queue (LSQ)
+  - Common Data Bus (CDB)
+  - Gshare Branch Predictor + BTB
+- Improved **CoreMark IPC from ~0.10 to 0.3807**
+- Achieved **636.94 MHz** post-synthesis clock frequency
+- Verified against benchmark workloads including CoreMark
 
-## Point Breakdown
+## Project Overview
 
-| Checkpoint | Points |
-|---------------------|--------|
-| CP 1 | 15 |
-| CP 2 | 15 |
-| CP 3 | 20 |
-| Competition | 20 |
-| Advanced Features | 20 |
-| Presentation/Report | 10 |
+The goal of this project was to design a working **out-of-order RISC-V CPU** that can correctly execute the RV32IM instruction set while exploiting instruction-level parallelism. The processor issues instructions dynamically from reservation stations, tracks dependencies using ROB tags, and preserves architectural correctness through in-order commit.
 
-**Total Points:** 100
+The final design includes:
+- Dynamic scheduling
+- Register renaming through ROB tag tracking
+- Out-of-order execution
+- In-order retirement
+- Branch prediction
+- Out-of-order load handling
 
-Detailed rubrics for each checkpoint will be added below closer to their release
-date.
 
-Students can also score up to 10 points of extra credit by making additional
-advanced features - more about this will be detailed in the Advanced Features
-section. You can also receive +2 extra credit points on CP2 for Verilator tooling. The maximum possible grade on this MP will be *112 points*.
+<p align="center"> <img src="docs/images/REadme_images/block_diagram.png"/> <p
+  align="center">Processor Architecture</p> </p>
 
-## Overview
 
-By the end of this MP, you can expect to have made an out-of-order processor
-implementing:
-
-- Either Tomasulo's Algorithm or an Explicit Register Renaming scheme
-- Split instruction cache and data cache
-- Support for multiplication and division instructions
-- Advanced features of your choice!
+## Architecture
 
-In total, this MP will span 6 weeks. The first 3 weeks of this MP will be
-centered around developing the core microarchitecture for an RV32IM OoO
-processor. By week 2, you will have picked either a Tomasulo-style or ERR-style
-processor. Based on your choice, your group will be assigned a mentor CA/TA that
-has worked with that microarchitecture in the past. They will be your primary
-source of guidance throughout this MP, and will also be responsible for grading
-your submissions. You will have weekly meetings to discuss your progress on the
-MP and grade your checkpoints.
+The processor is organized into the following pipeline stages:
 
-The final 3 weeks will be a design competition. Course staff will maintain a
-"Leaderboard", which periodically runs various benchmarks using your
-processor. You will be ranked against your classmates' processors, as well as a
-simple baseline processor written by course staff. You can learn more in the
-[competition section](#Competition).
+1. **Fetch**
+2. **Dispatch / Rename**
+3. **Issue / Execute**
+4. **Writeback**
+5. **Commit**
 
-## mp_cache Dependency
+### Main Hardware Blocks
 
-Checkpoint 3 of this MP involves integrating data and instruction caches with
-your processor - typically, this is done by using modified versions of
-`mp_cache`.
+| Component | Quantity | Depth |
+|---|---:|---:|
+| Reservation Stations (RS) | 4 | 4 |
+| Common Data Bus (CDB) | 4 | N/A |
+| Reorder Buffer (ROB) | 1 | 8 |
+| Instruction Queue (IQ) | 1 | 16 |
+| Load/Store Queue (LSQ) | 2 | 4 |
 
-If your group was unable to complete `mp_cache`, don't worry - we will provide
-the RTL for a direct-mapped write-through cache before the CP3 release. However,
-this cache will be less performant and area/energy-efficient than the
-set-associative pipelined cache architecture from before. We highly recommend
-attempting to complete/fix your `mp_cache` submission to maximize performance
-during the design competition.
-
-## Outside Code
-
-For this MP, all the RTL/code that you use should be your own, with the
-exception of course-staff provided resources. In addition, you may use any IP
-categorized under `Datapath: Arithmetic Components`, `Datapath: Floating Point`,
-and `Datapath: Sequential Components` as categorized by [the designware
-docs](https://www.synopsys.com/dw/buildingblock.php). The most relevant IP for
-implementing RISC-V extensions will be:
+The processor follows a Tomasulo-like execution model:
+- Instructions are fetched and placed into the instruction queue
+- Decoded instructions are dispatched to both ROB and RS
+- RS entries wait until operands are ready
+- Execution completes out-of-order
+- ROB enforces in-order commit
 
-- Multiplier
-- Divider
-- Relevant functional units in `Datapath: Floating Point`
 
-Use of other outside RTL/code is prohibited.
-
-# Checkpoints
+## Fetch and Instruction Delivery
 
-This MP is split into 3 mandatory checkpoints, and a final evaluation after the
-design competition.
+The fetch stage initializes the PC to `0x1ECEB000` and increments by 4 for sequential instruction fetch. Instructions are buffered using a **parameterized FIFO-based instruction queue**.
 
-## Submissions
+### Parameterized Instruction Queue
 
-Below is a schedule for `mp_ooo`.
+The instruction queue is implemented using:
+- Head and tail pointers
+- Parameterized depth
+- FIFO semantics for instruction buffering
 
-![schedule](./docs/images/ooo_timeline.jpg)
-
-As you can see, `mp_ooo` is a fast-paced MP with heavy dependencies between
-checkpoints. It is in your best interest to start early and stay synced with
-your mentor.
-
-You will be graded by your mentor during your weekly meetings, based on a commit
-of your choice This commit should be pushed to github before the stated deadline
-on each checkpoint.
-
-## Late Policy
-
-Each checkpoint will be graded with the standard late policy shown [on the class
-website](https://courses.grainger.illinois.edu/ece411/fa2024/policy.html).
-
-There will be no partial credit awarded beyond what is outlined in the rubrics below.
-
-## Checkpoint 1 (15 points)
-
-**_Due 10/28, 11:59PM_**
-
-In this checkpoint, you will be designing the high-level microarchitecture for
-your processor, creating the front-end fetch stage, and integrating it with a
-DRAM model. At this time, you should also decide whether you will be developing
-a Tomasulo-style or ERR-style microarchitecture.
-
-While it is not required until CP3, if you have a working `mp_cache` we
-recommend integrating it with your fetch stage during this CP. It will save you
-time when debugging CP3.
-
-**Requirements:**
-- Draw a design block diagram (using draw.io or similar, **not handwritten!**)
-  of your OoO datapath [6]
-  - Graded on completeness, state/information flow, and readability
-- Implement and test a parameterizable queue (depth and width) [3]
-  - You are expected to identify relevant edge-cases of a FIFO, and show your
-    tests for them
-- Implement and test a cacheline adapter to deserialize a burst out of the DRAM
-  model [3]
-- Implement instruction fetch and integrate it with your cacheline adapter and
-  queue [3]
-    - Your program counter should be initialized to `0x1ECEB000`
-
-## Checkpoint 2 (15 points)
-
-~**_Due 11/4, 11:59PM_**~
-
-**_Due 11/5, 11:59PM_**
-
-By the end of this checkpoint, your processor will be able to execute all
-immediate and register instructions in the RV32I spec. In addition, you will be
-responsible for integrating multiplier and divider Synopsys IPs to implement the
-RISC-V M extension.
-
-In addition, from this checkpoint onwards we will be introducing a toolflow
-based on Verilator. Verilator is a cycle-level simulator that runs
-(significantly) faster than VCS. You can learn more about this toolflow in
-[VERILATOR.md](./docs/VERILATOR.md). Verilator is **optional** and now worth extra credit in CP2.
-
-You will need to handle the DIV-0 edgecase - please look at the RV32 ISA spec to
-understand the expected behavior here.
-
-**Requirements**
-- Implement your OoO architecture such that it can execute all immediate and
-  register instructions in RV32I [5]
-- Integrate the multiplier IP with your processor to perform all MUL
-  instructions in RV32M [2]
-- Integrate the divider IP with your processor to perform all DIV/REM
-  instructions in RV32M [2]
-- Modify your `mp_verif` random testbench to test coverage on all the
-  instructions required for this CP [2]
-- Demonstrate that your processor is able to execute instructions out-of-order
-  (via `testcode/ooo_test.s`) [2]
-- Show that your processor is compliant with Spyglass linter [2]
-- Show that your processor is compliant with Verilator linter [+2 Extra Credit]
-
-*There will be no provided tests outside of ooo_test.s* - if you are unable to
-correctly modify the random testbench, the onus of creating comprehensive tests
-to demonstrate what you have completed falls on you.
-
-## Checkpoint 3 (20 points)
-
-**_Recommended Due Date: 11/11, 11:59PM_**
-
-**_Hard Cutoff: 11/15, 11:59PM_**
-
-By the end of this checkpoint, your processor will be able to execute the
-entirety of the RV32IM spec (barring the exceptions outlined
-[here](#Introduction)). You will also integrate data caches and instruction
-caches with your processor, and add necessary arbiting logic for the DRAM model.
-
-Your primary deliverables for this checkpoint will be the following:
-
-- Integrate instruction caches and data caches with your core
-  - Add any necessary write/arbiter logic to the cacheline adapter
-- Support all memory instructions
-  - Memory instructions can be performed in order on ROB commit
-  - Recommended to support loads before ROB commit (refer to lab)
-- Support all control instructions (BR, JAL, JALR) and AUIPC if not yet
-  implemented
-  - Not required to support branch prediction yet, static not-taken is okay
-
-This will be the first checkpoint graded by an autograder, namely the
-leaderboard. In the meantime, you can use random/targeted tests,
-`coremark_im`, and any other released tests in order to test your processor. 
-Additionally, there will be no partial credit for this checkpoint - you will 
-need to fulfill all the leaderboard criteria listed below to get credit.
-
-Ideally, you are able to complete this checkpoint by 11/11. Your graded
-deliverable will be completing a successful run on the leaderboard by
-11/15. This is construed as a leaderboard run with a nonzero score. As the
-leaderboard will only begin running on 11/12, we highly recommend you construct
-your own tests prior to this date.
-
-# Final Submission: Competition + Advanced Features + Report (50)
-## Competition (20)
-
-This portion of your grade will be determined by how you fare in comparison to a
-baseline processor and your peers' processors while performing various
-staff-selected benchmarks. You will be evaluated on correctness and relative
-performance. An incorrect run of a benchmark (per spike log) will not score any
-points.
-
-The initial benchmark suite and the related performance metrics will be
-announced on the first day of the leaderboard (*11/15*). We will add more
-programs to this suite over the following 3 weeks, and freeze the benchmark list
-on *11/29*.
-
-See [COMPETITION.md](./docs/COMPETITION.md) for more information on grading and the
-leaderboard calculations.
-
-
-### Leaderboard
-The leaderboard, like AG for past MPs, will run periodically and test a series
-of benchmarks on your processor. If a benchmark is found to run correctly,
-then the Leaderboard will assign a nonzero score based on staff-picked metrics. 
-Coremark is confirmed to be in this test suite, and you will receive copies of any additional "open" benchmarks when
-the leaderboard is first deployed.
-
-To show up on the leaderboard, your processor must:
-- Be connected to RVFI
-- Match Spike and RVFI on **each test case (no points for a testcase you don't match)**
-- Be synthesizable and meet timing at the frequency you specify in options.json
-
-Note that not all leaderboard benchmarks will be public - staff will curate a
-series of "closed" benchmarks that will not be distributed as part of the
-`mp_ooo` release. However, you will be informed of their computational
-characteristics. Check out [TEST_CASES.md](./docs/TEST_CASES.md).
-
-## Advanced Features (20)
-
-This is the fun part of `mp_ooo` - optimizing your processor! You will be
-implementing processor enhancements of your choice. A list of example advanced
-features and their associated point values can be found in
-[ADVANCED_FEATURES.md](./docs/ADVANCED_FEATURES.md). Some of these features
-require significant design considerations when constructing the core
-microarchitecture, so be sure to take a look at this early on in your design
-process.
-
-The baseline requirement for this section is two-fold. You will need to
-implement advanced features that span *at least 3 different categories* based on
-[ADVANCED_FEATURES.md](./docs/ADVANCED_FEATURES.md). In addition, the point
-total of your advanced features must be *at least 20*. You will be graded only
-on the advanced features implemented *on your competition submission*. Note that
-you cannot get points for two features in the same category until the
-three-category minimum is met.
-
-Once the above requirements have been met, you can accrue extra credit based on
-your advanced features. Any advanced feature points on your competition
-processor over the minimum of 20 will score normally. Advanced features stored
-on a separate branch will be graded at half the original score (ex: a 2-way
-superscalar branch that was not used for the competition would score only 6
-points). Extra credit will be capped at 10 points.
-
-Note that you will need to justify your advanced feature selection during your
-final report, and include quantitative analysis of the performance
-benefit/degradation caused by each advanced feature. *This is required to score
-any points for a feature*.
-
-### Example Advanced Feature Configurations
-
-These would be configurations meeting the minimum requirements for advanced
-features.
-
-- GShare + BTB, Split LSQ, Post-Commit Buffer w/ Coalescing, Next-Line
-  Prefetcher (Total: 20 points)
-- 2-way Superscalar, Post-Commit Store Buffer, Advanced Benchmark Analysis
-  (Total: 20 points)
-
-## Final Presentation (10)
-
-At the conclusion of the project, you will give a presentation to the course
-staff (and fellow students) about your design. In addition, you need to collect
-your performance analyses and paper designs together as a final report that
-documents your accomplishments. More information about both the presentation and
-report will be released closer to the deadline.
-
-## Group Evaluations
-
-At the end of the project, each group member will submit feedback on how well
-the group worked together and how each member contributed to the project. The
-evaluation, along with feedback provided at TA meetings throughout the semester,
-will be used to judge individual contribution to the project.
-
-Although the group evaluation occurs at the end of the project, this should not
-be the first time your mentor TA hears about problems that might be
-occurring. If there are major problems with collaboration, the problems should
-be reflected in your TA meetings, or in private communication with your TA. The
-responses on the group evaluation should not come as a surprise to anyone.
-
-In the event of significant to extreme imbalance in work distribution between
-team members, course staff reserves the right to apply corrective bonuses and
-penalties to the affected students. This will be done only on a case-by-case
-basis.
-
-# Memory Model
-
-Also called the DRAM model, you will use a banked burst memory model throughout
-this MP.  Unlike previous memory models used throughout the semester, this model
-supports **multiple outstanding requests**. This means you can send multiple
-requests before the first response comes back from memory. Furthermore, if you
-issue multiple read requests, they might come back in a different order than you
-sent the requests. Writes will **not** be handled out of order.
-
-You are free to use this feature or not at your discretion. It may help
-performance significantly when paired with other advanced features. If you
-prefer, you can ignore this feature and use it very similarly to previous memory
-models which only supported one outstanding request.
+This parameterized structure was also reused in later modules such as the ROB and store queue.
+
+
+```systemverilog
+module instruction_queue #(
+  parameter IQ_DEPTH = 4,
+  parameter IQ_WIDTH = 32
+)
+```
+**Example of parameterized array**
+```systemverilog
+  logic [(IQ_WIDTH - 1):0] instr_arr[IQ_DEPTH];
+  logic [(IQ_WIDH - 1):0] pc_arr[IQ_DEPTH];
+  logic [(IQ_WIDTH - 1):0] pc_next_arr[IQ_DEPTH];
+  logic [(IQ_WIDTH - 1):0] valid_arr[IQ_DEPTH];
+```
+
+### Cacheline Adapter
+
+DRAM data burst behavior is described by the following timing diagram. To interface the DRAM with the 256-bit cacheline, a cacheline adapter is required to handle the data read and write into the DRAM from the cacheline. 
+
 
 <p align="center"> <img src="docs/images/bmem_read_single.svg"/> <p
-  align="center">Single Read Request</p> </p>
+  align="center">DRAM single read</p> </p>
 
 <p align="center"> <img src="docs/images/bmem_write_single.svg"/> <p
-  align="center">Single Write Request</p> </p>
+  align="center">DRAM single write</p> </p>
 
-<p align="center"> <img src="docs/images/bmem_read_queue_full.svg"/> <p
-  align="center">Read Queue Full</p> </p>
+The cacheline adapter contains a counter that counts 4 cycles for each 64 bits data burst to ensure all 256 bits are collected from the DRAMA counter. Likewise, when writing 256 bits from the cacheline into the DRAM, the counter also ensure all 256 bits are written into the DRAM in 4 consecutive clock cycles.
 
-<p align="center"> <img src="docs/images/bmem_write_queue_full.svg"/> <p
-  align="center">Write Queue Full</p> </p>
+For instruction cache, the 256-bit data read from the cache will be used to fetch 8 instructions consecutively.
 
-<p align="center"> <img src="docs/images/bmem_read_ooo.svg"/> <p
-  align="center">Out-Of-Order Read Response</p> </p>
 
-<p align="center"> <img src="docs/images/bmem_same_addr_rw.svg"/> <p
-  align="center">Mixed Reads and Writes to the Same Destination</p> </p>
+## Out-of-Order Execution
 
-## Repo Parameters
-The tooling in this repo is highly configurable, and will adjust based on your
-processor design.  Inside `options.json` there are a few parameters that you
-will need to set:
+Out-of-order execution is handled in the **Reservation Stations**.
 
-- `clock` - Clock period of your processor in picoseconds (ps). Make sure your
-  processor can synthesize at this frequency, otherwise the autograder wont run
-  your code!
-- `c_ext` - Denotes whether your processor should run code compiled for the
-  RISC-V C (compressed) extension. Value: true/false.
-- `f_ext` - Denotes whether your processor should run code compiled for the
-  RISC-V F (floating point) extension. Value: true/false.
-- `bmem_0_on_x` - Specifies the value banked memory should return when loading
-  from an uninitialized address.  Possibly necessary for various speculative
-  memory execution schemes. `false`: return `X`. `true`: return `0`.
-- `dw_ip` - list of Synopsys IP that you wish to use. More on this in
-  [GUIDE.md](./docs/GUIDE.md).
+After decode:
+- Instructions are sent to the ROB and RS
+- RS receives destination tags from the ROB tail
+- Source operands are tracked using tags and valid bits
+- Instructions issue when operands become ready
 
-Good Luck! :)
+Execution units include:
+- ALU
+- Multiply / Divide
+- Load / Store
+- Branch / Comparator
+
+The **Common Data Bus (CDB)** broadcasts execution results so dependent instructions can wake up.
+
+Because the ROB is FIFO-ordered, instructions may complete out-of-order but still **commit in program order** by looking into their corresponding ```commit_ready``` bit. The instruction can only be commited if it is at the head positon in the ROB and its ```commit_ready``` bit is high.  
+
+
+## Multiply / Divide Integration
+
+Sequential Synopsys IPs were used for multiplication and division.
+
+Reasons for choosing the sequential IPs:
+- Configurable `rst_mode`
+- Configurable `input_mode`
+- Configurable `tc_mode` for signed/unsigned operations
+- Adjustable computation latency for timing tradeoffs
+
+This made it easier to:
+- Match pipeline behavior
+- Handle flushes
+- Control timing complexity
+
+The number of cycles used for multiply and divide IP are set to the maximum allowed cycles in order to operate at higher clock frequency. 
+<p align="center"> <img src="docs/images/Readme_images/Mul IP.png"/> <p
+  align="center">Multiply IP timing diagram</p> </p>
+<p align="center"> <img src="docs/images/Readme_images/Div IP.png"/> <p
+  align="center">Divide IP timing diagram</p> </p>
+
+## Load / Store Design
+
+In the original design, a single LSQ handled both load and store instructions. This introduced unnecessary stalls because loads had to wait even when they were independent of older stores.
+
+To improve performance, the LSQ was split into:
+- A **store queue**
+- A **load reservation station**
+
+### Out-of-Order Load Support
+
+With the split design:
+- Loads first check for older stores they may depend on
+- If no dependency exists, they may execute out-of-order
+- A special edge case is handled when a load arrives while a store is finishing commit
+
+In addition, the cache is pipelined. This significantly improves the IPC for nearly 4x compared to the original design with combined LSQ and non-pipelined cache .
+
+<!-- TODO: Insert out-of-order load waveform here -->
+<!-- Example:
+![Out-of-Order Load Waveform](docs/ooo_load.png)
+-->
+
+## Branch Prediction
+
+The design uses a **Gshare branch predictor** combined with a **Branch Target Buffer (BTB)**.
+
+This approach was chosen because it:
+- Is relatively simple to implement
+- Reduces aliasing by XORing PC bits with branch history
+- Reduces unnecessary pipeline flushes
+
+A major improvement observed in the project was the reduction in flush count:
+- **Before predictor improvement:** about 33,000 flushes
+- **After predictor improvement:** about 11,000 flushes
+
+<!-- TODO: Insert branch predictor / flush reduction graph here -->
+<!-- Example:
+![Flush Count Improvement](docs/branch_flush_reduction.png)
+-->
+
+## Results
+
+The initial out-of-order design passed local functional tests but suffered from poor IPC due to cache misses and limited memory performance. After introducing branch prediction, out-of-order load support, and pipelined cache usage, performance improved substantially.
+
+### Final Reported Metrics
+
+- **CoreMark IPC:** 0.3807
+- **Clock Frequency:** 636.94 MHz
+- **Area:** 182,619 µm²
+
+### Benchmark IPC Summary
+
+| Benchmark | IPC |
+|---|---:|
+| CoreMark | 0.3807 |
+| AES/SHA | 0.3130 |
+| CNN | 0.2680 |
+| Compression | 0.4997 |
+| FFT | 0.3684 |
+| Mergesort | 0.4716 |
+| Raytracing | 0.1834 |
+| RSA | 0.1977 |
+
+<!-- TODO: Insert initial results screenshot/table here -->
+<!-- Example:
+![Initial Results](docs/initial_results.png)
+-->
+
+<!-- TODO: Insert final results screenshot/table here -->
+<!-- Example:
+![Final Results](docs/final_results.png)
+-->
+
+## Design Tradeoffs and Limitations
+
+Two major remaining improvement opportunities were identified.
+
+### 1. Single-Cycle Load / Store on Cache Hit
+
+The memory subsystem currently uses multiple states for both load and store operations:
+- IDLE
+- LOAD / STORE
+- DONE
+
+This makes the design functionally correct, but inefficient. In an ideal cache-hit case, the processor could approach **1-cycle load/store**, which would significantly increase IPC.
+
+However, achieving that would require much more complex coordination between:
+- ROB
+- LSQ
+- Cache interface
+
+### 2. Branch Recovery
+
+Although branch prediction reduced flushes significantly, branch recovery is still incomplete and remains an important future improvement area.
+
+The design also intentionally kept the ROB relatively small to reduce flush penalties.
+
+<!-- TODO: Insert LSQ FSM figure here -->
+<!-- Example:
+![LSQ FSM](docs/lsq_fsm.png)
+-->
+
+## Future Work
+
+Potential next steps include:
+- Single-cycle load/store under hit conditions
+- More complete branch recovery
+- Better memory system optimization
+- Wider issue / superscalar support
+- More advanced branch prediction
+- Further IPC optimization for benchmark workloads
+
+## Repository Structure
+
+```text
+.
+├── rtl/
+│   ├── fetch/
+│   ├── rob/
+│   ├── rs/
+│   ├── lsq/
+│   ├── execute/
+│   └── common/
+├── testbench/
+├── docs/
+│   └── figures/
+└── README.md
